@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bloom wallpaper</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07090C; }
+  canvas, video {
+    position: absolute; inset: 0;
+    width: 100vw; height: 100vh;
+    display: none;
+  }
+  video { object-fit: cover; }
+  .active { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="v" muted loop autoplay playsinline></video>
+<script>
+// ---------- Garden scene: drifting brand-colour orbs ----------
+const cv = document.getElementById('c');
+const vid = document.getElementById('v');
+const cx = cv.getContext('2d');
+const DPR = Math.min(devicePixelRatio || 1, 2);
+let W, H;
+
+function size() {
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+size();
+addEventListener('resize', size);
+
+const COLS = ['255,77,109', '255,177,60', '43,229,167'];
+const orbs = Array.from({ length: 7 }, (_, i) => ({
+  c: COLS[i % 3],
+  r: 260 + Math.random() * 340,
+  sx: 0.00006 + Math.random() * 0.00009,
+  sy: 0.00005 + Math.random() * 0.00009,
+  px: Math.random() * 7,
+  py: Math.random() * 7,
+}));
+
+let mode = 'garden';   // 'garden' | 'video'
+let running = true;
+let raf = 0;
+
+function draw(t) {
+  cx.fillStyle = '#07090C';
+  cx.fillRect(0, 0, W, H);
+  for (const o of orbs) {
+    const x = (Math.sin(t * o.sx + o.px) * 0.5 + 0.5) * W;
+    const y = (Math.cos(t * o.sy + o.py) * 0.5 + 0.5) * H;
+    const g = cx.createRadialGradient(x, y, 0, x, y, o.r);
+    g.addColorStop(0, `rgba(${o.c},0.22)`);
+    g.addColorStop(1, `rgba(${o.c},0)`);
+    cx.fillStyle = g;
+    cx.beginPath();
+    cx.arc(x, y, o.r, 0, 7);
+    cx.fill();
+  }
+  if (running && mode === 'garden') raf = requestAnimationFrame(draw);
+}
+
+function showGarden() {
+  mode = 'garden';
+  vid.classList.remove('active');
+  vid.pause();
+  vid.removeAttribute('src');
+  vid.load();
+  cv.classList.add('active');
+  if (running) raf = requestAnimationFrame(draw);
+  localStorage.removeItem('bloom.video');
+}
+
+function showVideo(fileUrl) {
+  mode = 'video';
+  cancelAnimationFrame(raf);
+  cv.classList.remove('active');
+  vid.src = fileUrl;
+  vid.classList.add('active');
+  if (running) vid.play().catch(() => {});
+}
+
+// ---------- wire up Tauri events ----------
+const T = window.__TAURI__;
+
+T.event.listen('bloom://toggle', () => {
+  running = !running;
+  if (mode === 'garden') {
+    if (running) raf = requestAnimationFrame(draw);
+    else cancelAnimationFrame(raf);
+  } else {
+    if (running) vid.play().catch(() => {});
+    else vid.pause();
+  }
+});
+
+T.event.listen('bloom://garden', showGarden);
+
+T.event.listen('bloom://set-video', (e) => {
+  const path = e.payload;
+  localStorage.setItem('bloom.video', path);
+  showVideo(T.core.convertFileSrc(path));
+});
+
+// ---------- restore last choice ----------
+const saved = localStorage.getItem('bloom.video');
+if (saved) showVideo(T.core.convertFileSrc(saved));
+else showGarden();
+</script>
+</body>
+</html>
