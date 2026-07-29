@@ -44,4 +44,8 @@ npm run tauri dev    # develop
 npm run tauri build  # produce installers
 ```
 
+## License
+
+[GPL-3.0](LICENSE) — free forever, and every fork stays free too.
+
 Made in Türkiye 🌱
