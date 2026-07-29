@@ -1,8 +1,23 @@
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_desktop_underlay::DesktopUnderlayExt;
 use tauri_plugin_dialog::DialogExt;
+
+/// True when the machine is running on battery power.
+#[cfg(target_os = "macos")]
+fn on_battery() -> bool {
+    std::process::Command::new("pmset")
+        .args(["-g", "batt"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
+        .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn on_battery() -> bool {
+    false
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,8 +63,29 @@ pub fn run() {
             let choose = MenuItem::with_id(app, "choose", "Choose Video…", true, None::<&str>)?;
             let garden = MenuItem::with_id(app, "garden", "Garden Scene", true, None::<&str>)?;
             let toggle = MenuItem::with_id(app, "toggle", "Pause / Resume", true, None::<&str>)?;
+            let battpause =
+                CheckMenuItem::with_id(app, "battpause", "Pause on Battery", true, true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Bloom", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&choose, &garden, &toggle, &quit])?;
+            let menu = Menu::with_items(app, &[&choose, &garden, &toggle, &battpause, &quit])?;
+
+            // Watch power state; tell the wallpaper when it changes.
+            {
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    let mut last: Option<bool> = None;
+                    loop {
+                        let now = on_battery();
+                        if last != Some(now) {
+                            last = Some(now);
+                            if let Some(w) = app_handle.get_webview_window("wallpaper") {
+                                let _ = w.emit("bloom://power", if now { "battery" } else { "ac" });
+                            }
+                        }
+                        std::thread::sleep(std::time::Duration::from_secs(15));
+                    }
+                });
+            }
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -57,8 +93,13 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .tooltip("Bloom — live wallpaper")
-                .on_menu_event(|app, event| match event.id.as_ref() {
+                .on_menu_event(move |app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
+                    "battpause" => {
+                        if let Some(w) = app.get_webview_window("wallpaper") {
+                            let _ = w.emit("bloom://battery-pref", battpause.is_checked().unwrap_or(true));
+                        }
+                    }
                     "toggle" => {
                         if let Some(w) = app.get_webview_window("wallpaper") {
                             let _ = w.emit("bloom://toggle", ());

@@ -87,8 +87,15 @@ function showVideo(fileUrl) {
 // ---------- wire up Tauri events ----------
 const T = window.__TAURI__;
 
-T.event.listen('bloom://toggle', () => {
-  running = !running;
+// The wallpaper runs only when the user wants it AND power allows it.
+let userRunning = true;
+let onBattery = false;
+let battPref = localStorage.getItem('bloom.battpause') !== '0'; // default: pause on battery
+
+function apply() {
+  const should = userRunning && !(onBattery && battPref);
+  if (should === running) return;
+  running = should;
   if (mode === 'garden') {
     if (running) raf = requestAnimationFrame(draw);
     else cancelAnimationFrame(raf);
@@ -96,6 +103,22 @@ T.event.listen('bloom://toggle', () => {
     if (running) vid.play().catch(() => {});
     else vid.pause();
   }
+}
+
+T.event.listen('bloom://toggle', () => {
+  userRunning = !userRunning;
+  apply();
+});
+
+T.event.listen('bloom://power', (e) => {
+  onBattery = e.payload === 'battery';
+  apply();
+});
+
+T.event.listen('bloom://battery-pref', (e) => {
+  battPref = !!e.payload;
+  localStorage.setItem('bloom.battpause', battPref ? '1' : '0');
+  apply();
 });
 
 T.event.listen('bloom://garden', showGarden);
