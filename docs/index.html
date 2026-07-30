@@ -277,11 +277,11 @@
   <!-- RECEIPTS -->
   <section class="stage" id="receipts">
     <div class="in" style="width:100%">
-      <h2 class="super rv"><span class="count" id="mbcount">39</span> MB.<br><span class="dim">That's the whole flower.</span></h2>
-      <p class="sub rv">Other wallpaper apps bring a browser to run a video. Bloom uses the one your OS already has — and your GPU's native decoder does the rest.</p>
+      <h2 class="super rv"><span class="count" id="mbcount">39</span> MB<span class="dim"> on Mac.</span><br><span class="dim">Windows numbers coming soon.</span></h2>
+      <p class="sub rv">Other wallpaper apps bring a browser to run a video. On macOS, Bloom uses the system's native webview and video decoder. Windows uses Microsoft's WebView2 instead — we're still measuring what that costs.</p>
       <div class="winwrap rv" style="padding-bottom:0;margin-top:52px">
         <div class="win amon">
-          <div class="tbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="tname">Activity Monitor — Memory</span></div>
+          <div class="tbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="tname">Activity Monitor — Memory (macOS)</span></div>
           <div style="overflow-x:auto">
           <table>
             <thead><tr><th>Process name</th><th>Memory pressure</th><th style="text-align:right">Memory</th><th style="text-align:right">% CPU hidden</th></tr></thead>
@@ -299,15 +299,21 @@
                 <td class="num">&gt; 0</td>
               </tr>
               <tr class="bloomrow">
-                <td class="pname oo">bl<em>oo</em>m<small>tauri + native decode</small></td>
+                <td class="pname oo">bl<em>oo</em>m<small>macOS · native decode</small></td>
                 <td><div class="meter"><i data-w="5%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
                 <td class="num">39 MB</td>
                 <td class="num">0.0</td>
               </tr>
+              <tr>
+                <td class="pname">bl<em>oo</em>m<small>Windows · WebView2</small></td>
+                <td><div class="meter"><i data-w="0%" style="background:#5C6C67"></i></div></td>
+                <td class="num">measuring…</td>
+                <td class="num">—</td>
+              </tr>
             </tbody>
           </table>
           </div>
-          <p class="foot"><b>39 MB is a measurement, not marketing</b> — one 1080p video looping on an M1 MacBook, July 2026. Fresh numbers ship with every release.</p>
+          <p class="foot"><b>39 MB is a measurement, not marketing</b> — one 1080p video looping on an M1 MacBook, July 2026. Windows uses a different webview engine (WebView2), so its numbers will land in a separate row once we've tested on real hardware — not assumed to match macOS. Fresh numbers ship with every release.</p>
         </div>
       </div>
     </div>
