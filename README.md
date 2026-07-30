@@ -4,29 +4,28 @@
 
 <h1 align="center">bloom</h1>
 
-<p align="center"><b>Live wallpapers that don't eat your Mac.</b><br>
-Any video, behind your icons, alive — in under 40 MB of RAM.</p>
+<p align="center">A small macOS app that plays a looping video behind your desktop icons.</p>
 
 <p align="center"><a href="https://keen7-bloom.github.io/bloom/">Website</a> ·
 <a href="https://github.com/keen7-Bloom/bloom/releases">Download</a></p>
 
 ---
 
-## Why
+## What it does
 
-Wallpaper Engine idles at 450–900 MB because it ships a whole browser. Bloom uses the
-webview your OS already has (settings UI only) and your GPU's native video decoder for
-the wallpaper itself. **Measured: 39 MB with a 1080p loop on an M1 MacBook.** When your
-windows cover the desktop, macOS suspends Bloom entirely — zero frames, 0.0% CPU.
+Bloom sets a video file (MP4 or WebM) as an animated desktop background. It runs as a
+menu bar app on macOS, using Tauri's webview for the settings UI and the system's video
+decoder for playback, so it uses relatively little memory (around 39 MB with a 1080p
+loop, measured on an M1 MacBook). It also stops rendering when the desktop isn't visible.
 
 ## Features (v0.1)
 
-- Any MP4/WebM as a live wallpaper — drag it in, done
-- Built-in "Garden" scene
-- Menu bar app: no dock icon, no clutter
-- Pause / resume from the tray
-- Remembers your wallpaper across restarts
-- No account, no telemetry, no network access
+- Set any local MP4/WebM as a live wallpaper
+- One built-in scene ("Garden")
+- Runs from the menu bar, no dock icon
+- Pause / resume from the tray menu
+- Remembers your last wallpaper between launches
+- No account, no analytics, no network requests
 
 ## Install
 
