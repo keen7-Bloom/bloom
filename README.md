@@ -43,6 +43,11 @@ npm run tauri dev    # develop
 npm run tauri build  # produce installers
 ```
 
+## Support
+
+Found a bug or something's not working right? [Open an issue](https://github.com/keen7-Bloom/bloom/issues)
+or email bloomappsupportapp@gmail.com.
+
 ## License
 
 [GPL-3.0](LICENSE) — free forever, and every fork stays free too.
