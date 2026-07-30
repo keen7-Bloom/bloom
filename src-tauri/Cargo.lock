@@ -297,6 +297,7 @@ dependencies = [
  "tauri-plugin-desktop-underlay",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -14,7 +14,17 @@ fn on_battery() -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+fn on_battery() -> bool {
+    use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+    unsafe {
+        let mut status: SYSTEM_POWER_STATUS = std::mem::zeroed();
+        // ACLineStatus: 0 = battery, 1 = AC, 255 = unknown
+        GetSystemPowerStatus(&mut status) != 0 && status.ACLineStatus == 0
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn on_battery() -> bool {
     false
 }
