@@ -277,8 +277,8 @@
   <!-- RECEIPTS -->
   <section class="stage" id="receipts">
     <div class="in" style="width:100%">
-      <h2 class="super rv"><span class="count" id="mbcount">39</span> MB<span class="dim"> on Mac.</span><br><span class="dim">Windows numbers coming soon.</span></h2>
-      <p class="sub rv">Other wallpaper apps bring a browser to run a video. On macOS, Bloom uses the system's native webview and video decoder. Windows uses Microsoft's WebView2 instead — we're still measuring what that costs.</p>
+      <h2 class="super rv"><span class="count" id="mbcount">184</span> MB<span class="dim"> with a 1080p loop.</span><br><span class="dim">Here's the whole table.</span></h2>
+      <p class="sub rv">Other wallpaper apps ship their own copy of Chromium. Bloom uses the webview already on your machine, which is why the installer is 2 MB instead of 200. Running, it costs what a webview costs — and nothing at all once your desktop is covered.</p>
       <div class="winwrap rv" style="padding-bottom:0;margin-top:52px">
         <div class="win amon">
           <div class="tbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="tname">Activity Monitor — Memory (macOS)</span></div>
@@ -287,28 +287,40 @@
             <thead><tr><th>Process name</th><th>Memory pressure</th><th style="text-align:right">Memory</th><th style="text-align:right">% CPU hidden</th></tr></thead>
             <tbody>
               <tr>
-                <td class="pname">Wallpaper Engine<small>ships its own Chromium</small></td>
+                <td class="pname">Wallpaper Engine<small>Windows · ships its own Chromium</small></td>
                 <td><div class="meter"><i data-w="92%" style="background:#5C6C67"></i></div></td>
                 <td class="num">450–900 MB</td>
                 <td class="num">&gt; 0</td>
               </tr>
               <tr>
-                <td class="pname">Lively Wallpaper<small>lightest big-name option</small></td>
+                <td class="pname">Lively Wallpaper<small>Windows · lightest big-name option</small></td>
                 <td><div class="meter"><i data-w="30%" style="background:#8B9A94"></i></div></td>
                 <td class="num">120–280 MB</td>
                 <td class="num">&gt; 0</td>
               </tr>
               <tr class="bloomrow">
-                <td class="pname oo">bl<em>oo</em>m<small>macOS · 1080p video</small></td>
-                <td><div class="meter"><i data-w="5%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
-                <td class="num">39 MB</td>
+                <td class="pname oo">bl<em>oo</em>m<small>macOS · desktop covered</small></td>
+                <td><div class="meter"><i data-w="4%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
+                <td class="num">measuring…</td>
                 <td class="num">0.0</td>
               </tr>
               <tr class="bloomrow">
+                <td class="pname oo">bl<em>oo</em>m<small>macOS · built-in garden scene</small></td>
+                <td><div class="meter"><i data-w="19%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
+                <td class="num">171 MB</td>
+                <td class="num">&gt; 0</td>
+              </tr>
+              <tr class="bloomrow">
+                <td class="pname oo">bl<em>oo</em>m<small>macOS · 1080p video</small></td>
+                <td><div class="meter"><i data-w="20%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
+                <td class="num">184 MB</td>
+                <td class="num">&gt; 0</td>
+              </tr>
+              <tr class="bloomrow">
                 <td class="pname oo">bl<em>oo</em>m<small>macOS · 4K video</small></td>
-                <td><div class="meter"><i data-w="9%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
-                <td class="num">57–70 MB</td>
-                <td class="num">0.0</td>
+                <td><div class="meter"><i data-w="34%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
+                <td class="num">308 MB</td>
+                <td class="num">&gt; 0</td>
               </tr>
               <tr>
                 <td class="pname">bl<em>oo</em>m<small>Windows · WebView2</small></td>
@@ -319,20 +331,10 @@
             </tbody>
           </table>
           </div>
-          <p class="foot"><b>These are measurements, not marketing</b> — one M1 MacBook, July 2026. 39 MB looping 1080p, 57–70 MB looping 4K (heavier resolution genuinely costs more — we're not going to pretend otherwise). Both drop to near-0% CPU the instant the desktop is hidden. Windows uses a different webview engine (WebView2), so its numbers will land in a separate row once we've tested on real hardware — not assumed to match macOS. Fresh numbers ship with every release.</p>
+          <p class="foot"><b>These are measurements, not marketing</b> — M1 MacBook Air, July 2026, desktop visible, summed across all four processes Bloom runs (the app plus the three WebKit services that do the actual rendering). Measured with <code>phys_footprint</code>, the same number Activity Monitor shows you.<br><br>
+          <b>We had these wrong until v0.4.1.</b> Earlier versions of this page claimed 39 MB for 1080p. That figure counted only the main <code>bloom</code> process and missed the WebKit processes entirely — which are the larger part. The real number is about 4.7× higher, and it's in the table above. The measuring script is <a href="https://github.com/keen7-Bloom/bloom/blob/main/scripts/measure-memory.sh" style="color:var(--green)">in the repo</a>; run it yourself.<br><br>
+          <b>The comparison rows are Windows apps.</b> Wallpaper Engine and Lively don't ship for macOS, so they can't be measured on the same machine as the rows below them. Treat them as context for what a bundled-Chromium wallpaper app costs, not as a like-for-like benchmark. Bloom's own Windows numbers aren't measured yet — that row stays empty until they are.</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- PAUSE -->
-  <section class="stage">
-    <div class="in">
-      <h2 class="super rv">It knows when<br><span class="dim">to look away.</span></h2>
-      <p class="sub rv">Full-screen app? On battery? Desktop covered? Bloom stops rendering — not fewer frames, <b>zero frames</b>. macOS suspends it to 0.0% CPU.</p>
-      <div class="pausedemo rv">
-        <button class="switch" id="pausebtn" role="switch" aria-checked="true" aria-label="Toggle wallpaper"></button>
-        <label><b id="pstate">Running</b> — try me. This page's wallpaper obeys the same switch.</label>
       </div>
     </div>
   </section>
@@ -566,19 +568,21 @@ document.querySelectorAll('.scene').forEach(b => b.addEventListener('click', () 
   cols = SCENES[b.dataset.scene];
 }));
 
-// ---------- pause: the switch AND the tray icon are the same control ----------
+// ---------- pause: the menu-bar icon is the control ----------
+// The standalone pause section was removed; the tray icon carries the demo now, so
+// these two may legitimately be absent.
 const pausebtn = document.getElementById('pausebtn');
 const pstate = document.getElementById('pstate');
 const tray = document.getElementById('tray');
 function setRunning(v) {
   running = v;
-  pausebtn.setAttribute('aria-checked', String(v));
-  pstate.textContent = v ? 'Running' : 'Paused — 0.0% CPU';
+  if (pausebtn) pausebtn.setAttribute('aria-checked', String(v));
+  if (pstate) pstate.textContent = v ? 'Running' : 'Paused — 0.0% CPU';
   tray.classList.toggle('paused', !v);
   if (v && !reduced) raf = requestAnimationFrame(draw);
   else cancelAnimationFrame(raf);
 }
-pausebtn.addEventListener('click', () => setRunning(!running));
+if (pausebtn) pausebtn.addEventListener('click', () => setRunning(!running));
 tray.addEventListener('click', () => setRunning(!running));
 
 // ---------- draggable windows (desktop energy) ----------
@@ -626,7 +630,7 @@ if (location.search.includes('flat')) {
         const t0 = performance.now();
         (function step(now) {
           const k = Math.min((now - t0) / 1100, 1);
-          mb.textContent = Math.round(450 - (450 - 39) * (1 - Math.pow(1 - k, 3)));
+          mb.textContent = Math.round(450 - (450 - 184) * (1 - Math.pow(1 - k, 3)));
           if (k < 1) requestAnimationFrame(step);
         })(t0);
       }
