@@ -22,9 +22,18 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwQkU0QzRCNUQxMDA1MkUKUldRdUJSQmRTMHkrUUJtdWFWSGx1dERBTXRRN0Z5bVc2UTZmR3FaRkRPWEhjSFdWaldFQlFKaWIK",
+      "endpoints": [
+        "https://github.com/keen7-Bloom/bloom/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "nsis", "msi", "deb", "rpm", "appimage"],
+    "createUpdaterArtifacts": true,
+    "targets": ["app", "dmg", "nsis", "msi", "deb", "rpm", "appimage"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

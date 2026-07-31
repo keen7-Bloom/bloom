@@ -3,6 +3,65 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_desktop_underlay::DesktopUnderlayExt;
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_updater::UpdaterExt;
+
+/// An update that has been found but not yet installed.
+///
+/// Bloom has no window to prompt in, so the tray menu item *is* the prompt: finding an
+/// update only relabels it to "Install update v…". Nothing is downloaded or replaced
+/// until the user picks it.
+#[derive(Default)]
+struct PendingUpdate(std::sync::Mutex<Option<tauri_plugin_updater::Update>>);
+
+/// Ask GitHub whether a newer release exists. Never installs.
+async fn check_for_update(app: tauri::AppHandle, item: MenuItem<tauri::Wry>) {
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("bloom: updater unavailable: {e}");
+            return;
+        }
+    };
+
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let version = update.version.clone();
+            eprintln!("bloom: update available: v{version}");
+            let _ = item.set_text(format!("Install update v{version}…"));
+            *app.state::<PendingUpdate>().0.lock().unwrap() = Some(update);
+        }
+        Ok(None) => eprintln!("bloom: already up to date"),
+        Err(e) => eprintln!("bloom: update check failed: {e}"),
+    }
+}
+
+/// Install the update the user just clicked, then relaunch into it.
+async fn install_update(app: tauri::AppHandle, item: MenuItem<tauri::Wry>) {
+    // Take the update out and drop the lock before awaiting — a MutexGuard must not
+    // be held across an await point.
+    let pending = {
+        let state = app.state::<PendingUpdate>();
+        let mut guard = state.0.lock().unwrap();
+        guard.take()
+    };
+
+    let Some(update) = pending else {
+        // Nothing staged, so this click is a manual "check now".
+        check_for_update(app, item).await;
+        return;
+    };
+
+    let version = update.version.clone();
+    let _ = item.set_text("Installing update…");
+    if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
+        eprintln!("bloom: update to v{version} failed: {e}");
+        // download_and_install consumed the update, so nothing is staged any more.
+        // Relabel to invite a retry — that click re-checks and re-stages from scratch.
+        let _ = item.set_text(format!("Retry update v{version}…"));
+        return;
+    }
+    app.restart();
+}
 
 /// True when the machine is running on battery power.
 #[cfg(target_os = "macos")]
@@ -52,6 +111,7 @@ fn on_battery() -> bool {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_desktop_underlay::init())
         .setup(|app| {
             // Menu bar app only — no Dock icon, no app switcher entry.
@@ -105,8 +165,20 @@ pub fn run() {
             let toggle = MenuItem::with_id(app, "toggle", "Pause / Resume", true, None::<&str>)?;
             let battpause =
                 CheckMenuItem::with_id(app, "battpause", "Pause on Battery", true, true, None::<&str>)?;
+            let update = MenuItem::with_id(app, "update", "Check for Updates…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Bloom", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&choose, &garden, &toggle, &battpause, &quit])?;
+            let menu = Menu::with_items(app, &[&choose, &garden, &toggle, &battpause, &update, &quit])?;
+
+            app.manage(PendingUpdate::default());
+
+            // Look for an update at startup, in the background so it never delays the
+            // wallpaper. This only relabels the tray item — nothing installs until the
+            // user clicks it.
+            {
+                let handle = app.handle().clone();
+                let item = update.clone();
+                tauri::async_runtime::spawn(check_for_update(handle, item));
+            }
 
             // Watch power state; tell the wallpaper when it changes.
             {
@@ -135,6 +207,9 @@ pub fn run() {
                 .tooltip("Bloom — live wallpaper")
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
+                    "update" => {
+                        tauri::async_runtime::spawn(install_update(app.clone(), update.clone()));
+                    }
                     "battpause" => {
                         if let Some(w) = app.get_webview_window("wallpaper") {
                             let _ = w.emit("bloom://battery-pref", battpause.is_checked().unwrap_or(true));

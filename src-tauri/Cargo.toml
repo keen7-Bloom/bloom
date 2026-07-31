@@ -29,9 +29,11 @@ strip = true        # no symbols in the shipped binary
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+serde_json = "1.0.151"
 tauri = { version = "2", features = ["protocol-asset", "image-png", "tray-icon"] }
 tauri-plugin-desktop-underlay = "0.2.1"
 tauri-plugin-dialog = "2.7.2"
+tauri-plugin-updater = "2.10.1"
 
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Power"] }

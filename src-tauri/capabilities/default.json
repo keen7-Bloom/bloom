@@ -4,6 +4,7 @@
   "description": "Capability for Bloom windows",
   "windows": ["wallpaper"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "updater:default"
   ]
 }

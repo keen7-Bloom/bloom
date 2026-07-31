@@ -22,7 +22,7 @@ jobs:
               repo: context.repo.repo,
               tag_name: context.ref.replace('refs/tags/', ''),
               name: `Bloom ${context.ref.replace('refs/tags/', '')}`,
-              body: 'Bloom for macOS (Apple Silicon & Intel) and Windows. Assets below.',
+              body: 'Downloads for macOS, Windows, and Linux below. Linux is experimental (X11 only).',
               draft: true,
               prerelease: false,
             });
@@ -70,6 +70,11 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the updater artifacts. Without these two the build still succeeds but
+          # logs "Signature not found for the updater JSON" and ships nothing installable
+          # by the updater — which is exactly what happened up to v0.3.0.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}

@@ -106,10 +106,14 @@ and were shipping inside every installer. They're now excluded from the Vite inp
 rather than deleted, so the files remain in the repo but stop being bundled.
 Capabilities dropped `opener:default` and the nonexistent `"main"` window.
 
-**`bundle.targets` is now explicit** (`dmg`, `nsis`, `msi`, `deb`, `rpm`, `appimage`)
-instead of `"all"`. `"all"` was what generated the misleading `bloom_*.app.tar.gz`
-updater bundles — the local build now reports "Finished 1 bundle" and produces none.
-That closes the old item 5 at the source rather than deleting assets by hand.
+**`bundle.targets` is now explicit** instead of `"all"`. Note `app` is in the list and
+must stay: on macOS the updater artifact *is* `bloom.app.tar.gz`, and building only
+`dmg` makes the bundler warn *"configured to create updater artifacts but no
+updater-enabled targets were built"* and silently produce none. The updater-capable
+targets are `app`, `appimage`, `msi`, `nsis`. Those `.tar.gz` files were never stray
+Linux builds — they were unsigned updater bundles nothing consumed. (Don't try to
+document this inside `tauri.conf.json`: the schema rejects unknown keys, so a
+`_comment` field fails the build outright.)
 
 **Wallpaper renderer** (`wallpaper.html`) — four fixes, all verified in a browser
 harness with a stubbed `window.__TAURI__`:
@@ -136,6 +140,53 @@ harness with a stubbed `window.__TAURI__`:
 **Still unmeasured:** the actual runtime RAM delta. A controlled before/after with the
 desktop genuinely visible (and CPU checked, per the earlier mistake) has not been run.
 Do not put a new RAM number on the site until it has.
+
+## Auto-updater (July 31, 2026) — uncommitted, blocked on a real signing key
+
+`tauri-plugin-updater` v2.10.1. Verified end to end locally: the build now reports
+*"Finished 1 updater signature"* instead of the old *"Signature not found for the
+updater JSON. Skipping upload."*
+
+- Plugin registered in `lib.rs`; `updater:default` added to capabilities.
+- **Check silently, install on click.** A background check runs at startup but installs
+  nothing — finding an update only relabels the tray item to "Install update v0.4.0…".
+  The tray item *is* the prompt, which is how a window-less app asks permission. Clicking
+  it with nothing staged does a manual check instead. The staged `Update` lives in a
+  `PendingUpdate(Mutex<Option<Update>>)` in app state; the guard is dropped before the
+  await, since a `MutexGuard` cannot be held across one. `download_and_install` consumes
+  the update, so a failed install relabels to "Retry update v…" and that click re-checks
+  from scratch rather than reusing a consumed value.
+- `createUpdaterArtifacts: true`, endpoint
+  `https://github.com/keen7-Bloom/bloom/releases/latest/download/latest.json`.
+- Workflow passes `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` to `tauri-action`, and its
+  release body no longer claims macOS+Windows only.
+- `serde_json` had to come back — adding a `plugins` block to `tauri.conf.json` makes
+  `generate_context!` emit code referencing it. Removing it earlier was correct then.
+
+**Size cost:** binary 2.43 MB → 3.43 MB (rustls/zip/tar come along). Still 68% under
+the original 10.80 MB. dmg 1.50 MB → 2.26 MB, versus 3.16 MB originally.
+
+**Signing key:** generated July 31 at `~/.tauri/bloom.key`, key id `40BE4C4B5D10052E`,
+public half is in `tauri.conf.json`. An earlier key was discarded after its password was
+pasted into a chat transcript; nothing had depended on it. The throwaway key used to test
+the pipeline has been destroyed.
+
+**REMAINING BLOCKER before any release:** the two GitHub secrets are not set yet. Kenan
+sets these himself — the private key is his and should not pass through anyone else:
+
+```
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/bloom.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+```
+
+Without them the build still succeeds but logs "Signature not found for the updater JSON"
+and ships nothing the updater can install — silent failure, exactly the v0.1.0 tray-menu
+pattern. Check the CI log for "Finished 1 updater signature" to confirm it worked.
+
+**Won't fix:** Tauri's update signature is not Apple/Microsoft code signing — Gatekeeper
+and SmartScreen warnings remain. On Linux only the AppImage can self-update; `.deb`/`.rpm`
+belong to the package manager. Anyone already on a build without the updater is stranded
+on manual updates forever, which is why this went in before real users arrived.
 
 ## Measured performance
 
