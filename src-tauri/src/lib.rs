@@ -24,7 +24,26 @@ fn on_battery() -> bool {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+/// Reads sysfs: any mains adapter reporting `online = 0` means we're on battery.
+/// Desktops with no adapter and no battery report false.
+#[cfg(target_os = "linux")]
+fn on_battery() -> bool {
+    let Ok(entries) = std::fs::read_dir("/sys/class/power_supply") else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let kind = std::fs::read_to_string(path.join("type")).unwrap_or_default();
+        if kind.trim() == "Mains" {
+            if let Ok(online) = std::fs::read_to_string(path.join("online")) {
+                return online.trim() == "0";
+            }
+        }
+    }
+    false
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn on_battery() -> bool {
     false
 }
@@ -39,6 +58,18 @@ pub fn run() {
             // Menu bar app only — no Dock icon, no app switcher entry.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // The desktop window-type hint we rely on is X11-only. Wayland has no
+            // equivalent protocol, so the wallpaper will float instead of sitting
+            // behind icons. Say so rather than letting it look broken.
+            #[cfg(target_os = "linux")]
+            if std::env::var("XDG_SESSION_TYPE").as_deref() == Ok("wayland") {
+                eprintln!(
+                    "bloom: Wayland session detected. Placing a window behind desktop \
+                     icons is X11-only, so the wallpaper will not sit behind your icons \
+                     here. Log in with an X11/Xorg session for the intended behaviour."
+                );
+            }
 
             // One wallpaper window covering the primary monitor.
             let monitor = app

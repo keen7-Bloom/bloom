@@ -4,7 +4,7 @@
 
 <h1 align="center">bloom</h1>
 
-<p align="center">A small app for macOS and Windows that plays a looping video behind your desktop icons.</p>
+<p align="center">A small app for macOS and Windows (and experimentally Linux) that plays a looping video behind your desktop icons.</p>
 
 <p align="center"><a href="https://keen7-bloom.github.io/bloom/">Website</a> ·
 <a href="https://github.com/keen7-Bloom/bloom/releases">Download</a></p>
@@ -24,13 +24,13 @@ native WKWebView + native decode). On Windows, Tauri uses Microsoft's WebView2
 number for it yet. Don't assume the two platforms match; we'll update this once we have
 real measurements from Windows hardware.
 
-## Features (v0.2)
+## Features (v0.3)
 
 - Set any local MP4/WebM as a live wallpaper
 - One built-in scene ("Garden")
 - Runs from the menu bar / tray, no dock or taskbar icon
 - Pause / resume from the tray menu
-- Pauses automatically on battery power (macOS and Windows)
+- Pauses automatically on battery power (macOS, Windows, Linux)
 - Remembers your last wallpaper between launches
 - No account, no analytics, no network requests
 
@@ -44,6 +44,18 @@ Unsigned beta — right-click → Open the first time.
 [Releases](https://github.com/keen7-Bloom/bloom/releases).
 Unsigned beta — Windows SmartScreen may warn on first run; click "More info" → "Run anyway".
 This build is new and less tested than macOS — please report anything odd.
+
+**Linux** (experimental, X11 only): `.deb` and `.AppImage` are in
+[Releases](https://github.com/keen7-Bloom/bloom/releases).
+
+> **Read this before trying it.** Placing a window behind desktop icons relies on the
+> X11 `_NET_WM_WINDOW_TYPE_DESKTOP` hint. **Wayland has no equivalent**, so on a Wayland
+> session (the default on modern GNOME/Ubuntu) the wallpaper window will float on top
+> instead of sitting behind your icons. Bloom prints a warning on startup if it detects
+> Wayland. Log in with an X11/Xorg session for the intended behaviour.
+>
+> Nobody has verified these builds on real Linux hardware yet — they compile in CI, that's
+> all we can honestly claim. Bug reports very welcome.
 
 ## Build from source
 
