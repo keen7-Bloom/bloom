@@ -23,6 +23,20 @@ footprint_mb () {  # $1 = pid -> current phys_footprint in MB
     | awk '{v=$1; u=$2; if(u=="KB"||$0~/KB/) v=v/1024; else if(u=="GB"||$0~/GB/) v=v*1024; printf "%.1f", v}'
 }
 
+# INSTANTANEOUS cpu across the given pids.
+# Do NOT use `ps -o %cpu` here: on macOS that is the average over the process's whole
+# lifetime, so a process that was busy ten minutes ago still reports non-zero while
+# completely idle. It made an earlier version of this script report AWAKE for a
+# genuinely suspended app, which is exactly the kind of error this script exists to
+# catch. `top -l 2` discards its first (lifetime-average) sample; the second is real.
+cpu_now () {
+  local args=""
+  for p in $@; do args="$args -pid $p"; done
+  top -l 2 ${=args} -stats cpu 2>/dev/null \
+    | tail -n +2 | grep -E '^[0-9.]+$' | tail -n $# \
+    | awk '{s+=$1} END {printf "%.1f", s+0}'
+}
+
 case "$1" in
   baseline)
     webkit_pids > $BASE
@@ -50,17 +64,15 @@ case "$1" in
 
     # Three samples 10s apart so a single unlucky moment can't define the number.
     for round in 1 2 3; do
-      TOTAL=0; AWAKE=0
+      TOTAL=0
       for p in ${=PIDS}; do
         ps -p $p > /dev/null 2>&1 || continue
         MB=$(footprint_mb $p); [ -z "$MB" ] && MB=0
-        CPU=$(ps -o %cpu= -p $p | tr -d ' ')
         TOTAL=$(echo "$TOTAL + $MB" | bc)
-        # Any non-zero CPU means the webview is awake and the number is trustworthy.
-        [ "$(echo "$CPU > 0.05" | bc)" = "1" ] && AWAKE=1
       done
-      STATE=$([ $AWAKE -eq 1 ] && echo "AWAKE" || echo "SUSPENDED — number is meaningless, make the desktop visible")
-      printf "  sample %d: %8.1f MB total   [%s]\n" $round $TOTAL "$STATE"
+      CPU=$(cpu_now ${=PIDS})
+      STATE=$([ "$(echo "$CPU > 0.5" | bc)" = "1" ] && echo "rendering" || echo "idle/suspended")
+      printf "  sample %d: %8.1f MB   cpu %5s%%   [%s]\n" $round $TOTAL "$CPU" "$STATE"
       [ $round -lt 3 ] && sleep 10
     done
 

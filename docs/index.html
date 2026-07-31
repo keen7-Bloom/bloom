@@ -159,6 +159,9 @@
   .amon td { padding: 13px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
   .amon .pname small { display: block; color: var(--mut); font-size: 12px; }
   .amon .num { font-family: var(--mono); font-size: 13.5px; text-align: right; white-space: nowrap; }
+  /* qualifier under a figure, e.g. "52 MB / resident" — the covered row reports resident
+     memory rather than footprint, and the table has to say so or the number misleads */
+  .amon .num small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: .02em; }
   .meter { height: 8px; border-radius: 99px; background: rgba(255,255,255,.06); overflow: hidden; min-width: 130px; }
   .meter i { display: block; height: 100%; border-radius: 99px; width: 0; transition: width 1.3s cubic-bezier(.22,1,.36,1); }
   .bloomrow td { background: rgba(43, 229, 167, .05); }
@@ -300,8 +303,8 @@
               </tr>
               <tr class="bloomrow">
                 <td class="pname oo">bl<em>oo</em>m<small>macOS · desktop covered</small></td>
-                <td><div class="meter"><i data-w="4%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
-                <td class="num">measuring…</td>
+                <td><div class="meter"><i data-w="6%" style="background:linear-gradient(90deg,var(--coral),var(--green))"></i></div></td>
+                <td class="num">52 MB<small>resident</small></td>
                 <td class="num">0.0</td>
               </tr>
               <tr class="bloomrow">
@@ -333,7 +336,8 @@
           </div>
           <p class="foot"><b>These are measurements, not marketing</b> — M1 MacBook Air, July 2026, desktop visible, summed across all four processes Bloom runs (the app plus the three WebKit services that do the actual rendering). Measured with <code>phys_footprint</code>, the same number Activity Monitor shows you.<br><br>
           <b>We had these wrong until v0.4.1.</b> Earlier versions of this page claimed 39 MB for 1080p. That figure counted only the main <code>bloom</code> process and missed the WebKit processes entirely — which are the larger part. The real number is about 4.7× higher, and it's in the table above. The measuring script is <a href="https://github.com/keen7-Bloom/bloom/blob/main/scripts/measure-memory.sh" style="color:var(--green)">in the repo</a>; run it yourself.<br><br>
-          <b>The comparison rows are Windows apps.</b> Wallpaper Engine and Lively don't ship for macOS, so they can't be measured on the same machine as the rows below them. Treat them as context for what a bundled-Chromium wallpaper app costs, not as a like-for-like benchmark. Bloom's own Windows numbers aren't measured yet — that row stays empty until they are.</p>
+          <b>The comparison rows are Windows apps.</b> Wallpaper Engine and Lively don't ship for macOS, so they can't be measured on the same machine as the rows below them. Treat them as context for what a bundled-Chromium wallpaper app costs, not as a like-for-like benchmark. Bloom's own Windows numbers aren't measured yet — that row stays empty until they are.<br><br>
+          <b>About the "desktop covered" row.</b> That one is resident memory, not footprint, because it's the only row where the two diverge sharply. Cover the desktop and macOS stops Bloom rendering — CPU 0.0%, verified — and compresses its pages down to 52 MB actually held in RAM. Activity Monitor will still show around 308 MB for it, because that column counts compressed pages too. Both numbers are true; the 52 MB is the one that's costing you something.</p>
         </div>
       </div>
     </div>

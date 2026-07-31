@@ -219,21 +219,44 @@ request):
   page names the machine it came from.
 - "Growing in v0.2" for audio-reactive — stale, audio-reactive is v0.4 on the roadmap.
 
-## Measured performance
+## Measured performance — CORRECTED July 31, 2026
 
-All figures from an M1 MacBook Air, July 2026, sampled with `ps` while the desktop was
-actually visible.
+**Every number published before v0.4.1 was wrong.** They counted only the `bloom`
+process. Bloom actually runs four: `bloom`, `com.apple.WebKit.GPU`,
+`com.apple.WebKit.WebContent`, `com.apple.WebKit.Networking`. The WebKit ones have no
+"bloom" in their process name, so every `grep -i bloom` silently dropped them — and
+they are the larger part. `WebKit.GPU` alone is 213 MB on 4K.
 
-| Condition | RAM | CPU |
-|---|---|---|
-| Idle / desktop occluded | ~13–27 MB | 0.0% |
-| 1080p video playing | ~39 MB | low |
-| 4K video playing | **57–70 MB** | 10–36% |
+M1 MacBook Air, `phys_footprint` summed across all four (the metric Activity Monitor's
+"Memory" column shows). Reproduce with `scripts/measure-memory.sh`.
 
-**Unmeasured:** Windows. It uses WebView2 (Chromium-based), architecturally different from
-WKWebView, so macOS numbers do not transfer. One friend reported roughly 10% of 8 GB
-(~800 MB) on a possibly-4K file — never confirmed with a screenshot. The website shows
-"measuring…" for Windows rather than guessing.
+| Condition | Memory | CPU | Old claim |
+|---|---|---|---|
+| Garden scene, visible | **171 MB** | > 0 | (unlisted) |
+| 1080p video, visible | **184 MB** | > 0 | 39 MB — 4.7× under |
+| 4K video, visible | **308 MB** | > 0 | 57–70 MB — 4.8× under |
+| Desktop covered (4K loaded) | 308 MB footprint / **52 MB resident** | **0.0%** | ~13–27 MB |
+
+**The occlusion win is real, but it's a CPU and resident-RAM win, not a footprint win.**
+Covering the desktop takes CPU to a verified 0.0% and lets macOS compress Bloom's pages
+to ~52 MB actually held in RAM — but Activity Monitor keeps reporting ~308 MB, because
+that column includes compressed pages. Both are true; say which you mean.
+
+**Measurement gotchas that already burned us twice:**
+- `ps -o %cpu` on macOS is the average over the process's whole *lifetime*, not now. An
+  idle-but-formerly-busy process reads non-zero forever. The first version of
+  `measure-memory.sh` used it and cheerfully reported "AWAKE" for a suspended app. Use
+  `top -l 2` and discard the first sample.
+- RSS and `phys_footprint` diverge by 6× when suspended. Name the metric or the number
+  is meaningless.
+- Check CPU *before* trusting any RAM figure. A suspended webview reads low for the
+  wrong reason.
+
+**Unmeasured:** Windows. Uses WebView2 (Chromium), architecturally different from
+WKWebView, so none of the above transfers. One friend reported ~800 MB on a possibly-4K
+file, never confirmed. Given macOS 4K is 308 MB, that report is now *more* plausible,
+not less — Chromium should be heavier than WKWebView, not lighter. Site shows
+"measuring…" rather than guessing.
 
 ---
 
