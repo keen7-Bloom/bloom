@@ -1,10 +1,22 @@
 # Bloom — project state
 
-**Last updated:** July 31, 2026
+**Last updated:** July 31, 2026 (optimization + updater pushed, not yet released)
 **Repo:** https://github.com/keen7-Bloom/bloom (public, GPL-3.0)
 **Site:** https://keen7-bloom.github.io/bloom/
 **Support:** bloomappsupportapp@gmail.com
 **Local path:** `~/Projects/bloom`
+
+---
+
+## Right now, in one paragraph
+
+Two commits sit on `main` past the last tag (`v0.3.0`): `87a67b3` (binary/renderer size
+optimization) and `f63cdef` (self-updater + three false-claim fixes on the site). Both
+are pushed. **Neither has gone through a release build.** The signing secrets are set,
+the code builds and signs correctly locally, but nothing has been verified in CI and no
+user has any of this yet. The single next step is cutting `v0.4.0` and watching all six
+jobs — that's the first real test of the aggressive `[profile.release]` flags on Windows
+and Linux, and of the updater signing in CI rather than on one local machine.
 
 ---
 
@@ -78,7 +90,7 @@ draft release, a matrix of platform jobs build and upload into it, a final job p
 
 ---
 
-## Optimization pass (July 31, 2026) — uncommitted
+## Optimization pass (July 31, 2026) — pushed to main, commit `87a67b3`
 
 Applied to all three platforms. macOS numbers are hard-measured from a local
 `--target aarch64-apple-darwin` release build; Windows/Linux effects are reasoned,
@@ -141,11 +153,17 @@ harness with a stubbed `window.__TAURI__`:
 desktop genuinely visible (and CPU checked, per the earlier mistake) has not been run.
 Do not put a new RAM number on the site until it has.
 
-## Auto-updater (July 31, 2026) — uncommitted, blocked on a real signing key
+## Auto-updater (July 31, 2026) — pushed to main, commit `f63cdef`, NOT yet released
 
-`tauri-plugin-updater` v2.10.1. Verified end to end locally: the build now reports
-*"Finished 1 updater signature"* instead of the old *"Signature not found for the
-updater JSON. Skipping upload."*
+`tauri-plugin-updater` v2.10.1. Verified end to end in a local release build (signed
+with the real key, both GitHub secrets set): reports *"Finished 1 updater signature"*
+instead of the old *"Signature not found for the updater JSON. Skipping upload."*
+
+**This code exists in the repo but has not shipped to a single user yet.** The release
+workflow only runs on `v*` tags, and no tag has been cut since `v0.3.0` (which predates
+all of today's work). Nothing has been verified in CI — only locally on macOS. Cutting
+`v0.4.0` is the next concrete step and will be the first real test of the updater, the
+new `[profile.release]` flags, and the site fixes together, on all three platforms.
 
 - Plugin registered in `lib.rs`; `updater:default` added to capabilities.
 - **Check silently, install on click.** A background check runs at startup but installs
@@ -171,22 +189,32 @@ public half is in `tauri.conf.json`. An earlier key was discarded after its pass
 pasted into a chat transcript; nothing had depended on it. The throwaway key used to test
 the pipeline has been destroyed.
 
-**REMAINING BLOCKER before any release:** the two GitHub secrets are not set yet. Kenan
-sets these himself — the private key is his and should not pass through anyone else:
-
-```
-gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/bloom.key
-gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-```
-
-Without them the build still succeeds but logs "Signature not found for the updater JSON"
-and ships nothing the updater can install — silent failure, exactly the v0.1.0 tray-menu
-pattern. Check the CI log for "Finished 1 updater signature" to confirm it worked.
+**Both GitHub secrets are set** (`TAURI_SIGNING_PRIVATE_KEY` at 11:32 UTC,
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` at 11:33 UTC, July 31). Confirmed via
+`gh secret list`. No blocker left on the signing side — the only thing left is cutting
+a tag so CI actually runs with them.
 
 **Won't fix:** Tauri's update signature is not Apple/Microsoft code signing — Gatekeeper
 and SmartScreen warnings remain. On Linux only the AppImage can self-update; `.deb`/`.rpm`
 belong to the package manager. Anyone already on a build without the updater is stranded
 on manual updates forever, which is why this went in before real users arrived.
+
+## Website fixes (July 31, 2026) — pushed to main, commit `f63cdef`, live on Pages
+
+Narrow pass only — checked against the code, three claims were false, one was stale.
+Nothing else on the site was touched (design, layout, and voice are unchanged, on
+request):
+
+- `per-monitor` claimed a feature that doesn't exist (`lib.rs` only ever calls
+  `primary_monitor()`). Relabeled `per-monitor.next`, described as planned for v0.4
+  rather than removed.
+- "a small starter pack ships in the box" — false, there's no bundled-video resources
+  dir. Reworded to say there isn't one yet.
+- "every release ships an Activity Monitor screenshot from real hardware" — false, and
+  the same wrong claim had already been caught and cut from a Reddit draft earlier, just
+  never fixed on the site itself. Reworded to what's actually true: every number on the
+  page names the machine it came from.
+- "Growing in v0.2" for audio-reactive — stale, audio-reactive is v0.4 on the roadmap.
 
 ## Measured performance
 
@@ -293,7 +321,8 @@ and gstreamer for distro portability; the deb/rpm declare them as system deps in
 Not a bug, but it sits badly next to "ultra-lightweight" on the site — lead with
 deb/rpm and offer the AppImage as the portable fallback.
 
-Compiling is not working. Nothing has run this build on real Linux hardware.
+v0.3.0 itself has run in CI on Ubuntu and produced valid packages, but nothing has run
+this build on a real, physical Linux machine yet.
 
 **Immediate:**
 1. ~~Confirm the Linux job built.~~ Done — green.
@@ -301,26 +330,32 @@ Compiling is not working. Nothing has run this build on real Linux hardware.
    session-type questions, FUSE-2 gotcha, multi-process RAM command). X11 session only —
    Wayland has no equivalent to the desktop window-type hint, so it will float on top.
    Bloom prints a startup warning when it detects Wayland.
-   **Suspected bug to watch for:** `lib.rs:97-100` builds the window (which shows it),
-   *then* calls `set_desktop_underlay(true)`. On X11 the plugin's implementation is
+   **Suspected bug to watch for:** `lib.rs` builds the window (which shows it), *then*
+   calls `set_desktop_underlay(true)`. On X11 the plugin's implementation is
    `gtk_window.set_type_hint(WindowTypeHint::Desktop)`, and most window managers read
    `_NET_WM_WINDOW_TYPE` at map time and never re-read it. So the hint may arrive too
    late and be ignored even on X11. If a tester reports "floats on top" *on an X11
    session*, this is the cause — fix is to build with `.visible(false)`, set the
-   underlay, then `.show()`. That ordering would also kill the brief flash of a
-   full-screen window at normal level on macOS and Windows.
-3. Fix the v0.3.0 release body — it still says "for macOS (Apple Silicon & Intel) and
-   Windows" while three Linux assets sit under it. Draft written. Also fix
-   `.github/workflows/release.yml:24`, which hardcodes that platform list into every
-   future release.
+   underlay, then `.show()`. Still unfixed; needs a real tester's answer first.
+3. **Fixed in the workflow, not yet on the live release.** `.github/workflows/release.yml`
+   no longer hardcodes "macOS and Windows" into the body — it now says "macOS, Windows,
+   and Linux below, Linux is experimental." But that only applies to releases cut *after*
+   this change; the live `v0.3.0` release page still has the old wrong text, since editing
+   a published release wasn't done without asking. Draft replacement body still sitting in
+   scratch, never applied.
 4. Get the Windows RAM number. Need Task Manager screenshot + video resolution + whether
    hardware GPU scheduling is on. If it's genuinely ~800 MB, suspect software decode
-   fallback in WebView2 — that's a real bug, not just WebView2 overhead.
-5. Delete the two misleading `.tar.gz` assets from releases. v0.3.0 shipped them again
-   (`bloom_aarch64.app.tar.gz`, `bloom_x64.app.tar.gz`). The Linux job confirmed the
-   updater is dead: it logged *"Signature not found for the updater JSON. Skipping
-   upload"* — so nothing consumes these. Either wire up the updater or stop shipping them.
-6. Commit a real Activity Monitor screenshot so the README's numbers have receipts.
+   fallback in WebView2 — that's a real bug, not just WebView2 overhead. Also worth
+   re-checking after the optimization pass below, which may have moved this number.
+5. **Closed a different way than planned.** The two `.tar.gz` files
+   (`bloom_aarch64.app.tar.gz`, `bloom_x64.app.tar.gz`) were never deleted — instead the
+   updater now actually consumes them. `bundle.targets` includes `"app"` specifically so
+   these get produced *and* signed. They'll keep appearing in every release from here on,
+   but now they're load-bearing instead of confusing dead weight. See the updater section
+   above.
+6. Commit a real Activity Monitor screenshot so the README's numbers have receipts. Still
+   not done. The site copy claiming this was shipping was fixed today (see Website below)
+   by rewording the claim rather than by finally taking the screenshot.
 
 **Distribution, when ready:**
 - Build ~10 Reddit karma by commenting normally, then post to r/SideProject,
