@@ -32,6 +32,14 @@ jobs:
     needs: create-release
     strategy:
       fail-fast: false
+      # One job at a time. Every job writes latest.json into the same release, and
+      # tauri-action deletes the existing asset before re-uploading its merged copy.
+      # Run them in parallel and two jobs race on that delete — the loser gets
+      # "Not Found - delete-a-release-asset" and dies *after* uploading its packages,
+      # which is how v0.4.0 shipped Linux binaries with no Linux entry in latest.json.
+      # Costs ~3x wall-clock on releases only. Worth it; this race has now bitten
+      # twice (v0.1.0 on release creation, v0.4.0 on asset upload).
+      max-parallel: 1
       matrix:
         include:
           - platform: macos-latest
