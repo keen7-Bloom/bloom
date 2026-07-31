@@ -10,13 +10,15 @@
 
 ## Right now, in one paragraph
 
-Two commits sit on `main` past the last tag (`v0.3.0`): `87a67b3` (binary/renderer size
-optimization) and `f63cdef` (self-updater + three false-claim fixes on the site). Both
-are pushed. **Neither has gone through a release build.** The signing secrets are set,
-the code builds and signs correctly locally, but nothing has been verified in CI and no
-user has any of this yet. The single next step is cutting `v0.4.0` and watching all six
-jobs — that's the first real test of the aggressive `[profile.release]` flags on Windows
-and Linux, and of the updater signing in CI rather than on one local machine.
+**v0.4.0 shipped** with optimization + self-updater + Windows + macOS updater signing
+all confirmed working in CI. But its Ubuntu job died mid-upload with a `404 Not Found`
+on delete-a-release-asset — Linux `.deb`/`.rpm`/`.AppImage` uploaded fine, but
+`latest.json` never got its `linux-x86_64` key, so Linux users can install v0.4.0 and
+then never self-update. **v0.4.1** (in flight) fixes it: `max-parallel: 1` on the build
+matrix removes the race where multiple jobs concurrently delete-then-reupload the same
+`latest.json`. Site update is *held back* until v0.4.1 CI produces real assets — the
+previous release cycle taught us that pushing download links before assets exist gives
+users 404s. The site currently still points at v0.4.0 downloads (which do work).
 
 ---
 
@@ -191,8 +193,9 @@ the pipeline has been destroyed.
 
 **Both GitHub secrets are set** (`TAURI_SIGNING_PRIVATE_KEY` at 11:32 UTC,
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` at 11:33 UTC, July 31). Confirmed via
-`gh secret list`. No blocker left on the signing side — the only thing left is cutting
-a tag so CI actually runs with them.
+`gh secret list`. Signing verified working in v0.4.0 CI on macOS aarch64 + x86_64 and
+Windows (msi + nsis). Linux was signed too but never made it into `latest.json` — see
+Right Now paragraph. v0.4.1 fixes that.
 
 **Won't fix:** Tauri's update signature is not Apple/Microsoft code signing — Gatekeeper
 and SmartScreen warnings remain. On Linux only the AppImage can self-update; `.deb`/`.rpm`
@@ -245,6 +248,15 @@ Silent failure, no error anywhere — worth remembering.
 `.msi` and `.exe`, then died at upload: all three matrix jobs raced to create the same
 release, two lost with `Not Found`. Fix: split into create-release → build matrix →
 publish.
+
+**Same race, different asset (v0.4.0).** Ubuntu job uploaded all three Linux packages
+and signatures, then died with `##[error]Not Found - .../delete-a-release-asset`
+mid-way through writing `latest.json`. The three-phase split from v0.1.0 stopped jobs
+racing on the *release*, but they still race on any *asset* they all write — chief
+among them the merged updater manifest. Fix: `max-parallel: 1` on the build matrix in
+`.github/workflows/release.yml`. Serial matrix runs ~3× longer on tagged releases, which
+is fine — releases are rare and correctness beats latency. Anyone on v0.4.0 Linux is
+stranded on manual updates until they re-install from v0.4.1.
 
 **Measured the wrong thing entirely.** Reported ~23 MB for 4K playback. It was 0.0% CPU
 across every sample — the webview was suspended because the desktop was covered. The real
