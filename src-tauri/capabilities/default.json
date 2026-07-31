@@ -2,9 +2,8 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Bloom windows",
-  "windows": ["main", "wallpaper"],
+  "windows": ["wallpaper"],
   "permissions": [
-    "core:default",
-    "opener:default"
+    "core:default"
   ]
 }

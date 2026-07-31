@@ -16,22 +16,33 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<video id="v" muted loop autoplay playsinline></video>
+<video id="v" muted loop autoplay playsinline disablepictureinpicture disableremoteplayback></video>
 <script>
 // ---------- Garden scene: drifting brand-colour orbs ----------
 const cv = document.getElementById('c');
 const vid = document.getElementById('v');
-const cx = cv.getContext('2d');
-const DPR = Math.min(devicePixelRatio || 1, 2);
-let W, H;
+const cx = cv.getContext('2d', { alpha: false });
+
+// The garden is nothing but huge soft radial gradients — there is no detail finer
+// than a few hundred pixels anywhere in it. Rendering at half of CSS pixels and
+// letting the compositor scale it up is visually identical and quarters the canvas
+// backing store. On a 4K panel that is the difference between ~33 MB and ~8 MB of
+// pixels, which matters far more on Windows (WebView2/Chromium) than on macOS.
+const SCALE = 0.5;
+
+// Orbs drift at ~6e-5 rad/ms — a full traverse takes over a minute. 60fps renders
+// frames indistinguishable from their predecessor; 30 is already generous.
+const FRAME_MS = 1000 / 30;
+
+let W, H, lastT = 0;
 
 function size() {
   W = innerWidth; H = innerHeight;
-  cv.width = W * DPR; cv.height = H * DPR;
-  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cv.width = Math.max(1, Math.round(W * SCALE));
+  cv.height = Math.max(1, Math.round(H * SCALE));
+  cx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  if (!running && mode === 'garden') render(lastT); // keep a frozen frame visible
 }
-size();
-addEventListener('resize', size);
 
 const COLS = ['255,77,109', '255,177,60', '43,229,167'];
 const orbs = Array.from({ length: 7 }, (_, i) => ({
@@ -41,27 +52,56 @@ const orbs = Array.from({ length: 7 }, (_, i) => ({
   sy: 0.00005 + Math.random() * 0.00009,
   px: Math.random() * 7,
   py: Math.random() * 7,
+  g: null,
 }));
+
+// Build each orb's gradient once, centred on the origin, and move it into place with
+// a translate at draw time. The previous version called createRadialGradient seven
+// times per frame — 420 throwaway gradient objects a second, every second, forever.
+for (const o of orbs) {
+  const g = cx.createRadialGradient(0, 0, 0, 0, 0, o.r);
+  g.addColorStop(0, `rgba(${o.c},0.22)`);
+  g.addColorStop(1, `rgba(${o.c},0)`);
+  o.g = g;
+}
 
 let mode = 'garden';   // 'garden' | 'video'
 let running = true;
 let raf = 0;
 
-function draw(t) {
+function render(t) {
+  lastT = t;
   cx.fillStyle = '#07090C';
   cx.fillRect(0, 0, W, H);
   for (const o of orbs) {
     const x = (Math.sin(t * o.sx + o.px) * 0.5 + 0.5) * W;
     const y = (Math.cos(t * o.sy + o.py) * 0.5 + 0.5) * H;
-    const g = cx.createRadialGradient(x, y, 0, x, y, o.r);
-    g.addColorStop(0, `rgba(${o.c},0.22)`);
-    g.addColorStop(1, `rgba(${o.c},0)`);
-    cx.fillStyle = g;
-    cx.beginPath();
-    cx.arc(x, y, o.r, 0, 7);
-    cx.fill();
+    cx.setTransform(SCALE, 0, 0, SCALE, x * SCALE, y * SCALE);
+    cx.fillStyle = o.g;
+    // The gradient is fully transparent at radius r, so a square covers the same
+    // visible area as an arc — without building a path every frame.
+    cx.fillRect(-o.r, -o.r, o.r * 2, o.r * 2);
   }
-  if (running && mode === 'garden') raf = requestAnimationFrame(draw);
+  cx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+}
+
+function draw(t) {
+  raf = requestAnimationFrame(draw);
+  if (t - lastT < FRAME_MS) return;
+  render(t);
+}
+
+// One loop, ever. The old code called requestAnimationFrame directly from both
+// showGarden() and apply(), so choosing "Garden Scene" twice left two self-
+// rescheduling loops running in parallel, each doing the full render.
+function startLoop() {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(draw);
+}
+
+function stopLoop() {
+  cancelAnimationFrame(raf);
+  raf = 0;
 }
 
 function showGarden() {
@@ -70,15 +110,20 @@ function showGarden() {
   vid.pause();
   vid.removeAttribute('src');
   vid.load();
+  size();               // reallocate the backing store released on the way out
   cv.classList.add('active');
-  if (running) raf = requestAnimationFrame(draw);
+  if (running) startLoop();
   localStorage.removeItem('bloom.video');
 }
 
 function showVideo(fileUrl) {
   mode = 'video';
-  cancelAnimationFrame(raf);
+  stopLoop();
   cv.classList.remove('active');
+  // display:none does NOT free a canvas backing store — on a 4K screen that is tens
+  // of megabytes sitting idle behind the video for the entire session. Zeroing the
+  // dimensions releases it; size() rebuilds it if the user switches back.
+  cv.width = cv.height = 0;
   vid.src = fileUrl;
   vid.classList.add('active');
   if (running) vid.play().catch(() => {});
@@ -97,8 +142,10 @@ function apply() {
   if (should === running) return;
   running = should;
   if (mode === 'garden') {
-    if (running) raf = requestAnimationFrame(draw);
-    else cancelAnimationFrame(raf);
+    // Paused keeps the last frame on screen rather than blanking to ink, so the
+    // canvas is deliberately not released here.
+    if (running) startLoop();
+    else stopLoop();
   } else {
     if (running) vid.play().catch(() => {});
     else vid.pause();
@@ -128,6 +175,8 @@ T.event.listen('bloom://set-video', (e) => {
   localStorage.setItem('bloom.video', path);
   showVideo(T.core.convertFileSrc(path));
 });
+
+addEventListener('resize', size);
 
 // ---------- restore last choice ----------
 const saved = localStorage.getItem('bloom.video');

@@ -78,6 +78,65 @@ draft release, a matrix of platform jobs build and upload into it, a final job p
 
 ---
 
+## Optimization pass (July 31, 2026) — uncommitted
+
+Applied to all three platforms. macOS numbers are hard-measured from a local
+`--target aarch64-apple-darwin` release build; Windows/Linux effects are reasoned,
+not yet measured.
+
+| | Before | After |
+|---|---|---|
+| Rust binary | 10.80 MB | **2.43 MB** (−77.5%) |
+| macOS dmg | 3.16 MB | **1.50 MB** (−52.6%) |
+| Crates in Cargo.lock | 479 | 439 |
+| npm runtime deps | 2 | **0** |
+| Shipped frontend | 4 files | 1 file, 5.8 KB |
+
+**Binary size.** `Cargo.toml` had no `[profile.release]` at all — it was building on
+stock defaults. Added `opt-level="z"`, `lto="fat"`, `codegen-units=1`,
+`panic="abort"`, `strip=true`. Nothing Bloom does in Rust is hot (create a window,
+build a tray menu, poll power every 15s), so trading CPU optimisation for size costs
+nothing real. This single change is most of the 77%.
+
+**Dead weight removed.** `tauri-plugin-opener` was registered in `lib.rs` and never
+called anywhere. `serde`/`serde_json` were declared and never imported (no
+`#[tauri::command]` exists). `index.html` + `src/` were untouched Tauri scaffold —
+its `main.ts` calls `invoke("greet")`, a command that doesn't exist in `lib.rs` —
+and were shipping inside every installer. They're now excluded from the Vite input
+rather than deleted, so the files remain in the repo but stop being bundled.
+Capabilities dropped `opener:default` and the nonexistent `"main"` window.
+
+**`bundle.targets` is now explicit** (`dmg`, `nsis`, `msi`, `deb`, `rpm`, `appimage`)
+instead of `"all"`. `"all"` was what generated the misleading `bloom_*.app.tar.gz`
+updater bundles — the local build now reports "Finished 1 bundle" and produces none.
+That closes the old item 5 at the source rather than deleting assets by hand.
+
+**Wallpaper renderer** (`wallpaper.html`) — four fixes, all verified in a browser
+harness with a stubbed `window.__TAURI__`:
+
+1. *Gradients were rebuilt every frame.* `createRadialGradient` ran 7× per frame —
+   ~420 throwaway gradient objects a second, forever. Now built once per orb at the
+   origin and positioned with a transform. Also replaced `arc()`+`fill()` with
+   `fillRect()`, since the gradient is transparent at its edge anyway, which drops
+   path construction too.
+2. *Duplicate animation loops.* `requestAnimationFrame` was called directly from both
+   `showGarden()` and `apply()` with no cancel, so choosing "Garden Scene" twice left
+   two self-rescheduling loops running in parallel, each doing a full render. Verified:
+   three consecutive `showGarden()` calls now hold at 60 RAF/s instead of ~240.
+3. *Canvas backing store was never released.* Switching to video only set
+   `display:none`, which does **not** free the pixels — on a 4K screen that is tens of
+   MB sitting idle behind the video for the whole session. Now zeroed on switch and
+   rebuilt on return. This is the change most likely to matter for the Windows number.
+4. *Render scale and frame rate.* The garden is nothing but huge soft gradients with no
+   detail finer than a few hundred px, so it now renders at 0.5× CSS pixels (quarter
+   the pixels) and throttles to 30fps — the orbs drift at ~6e-5 rad/ms, so 60fps was
+   drawing indistinguishable frames. RAF still ticks at 60 deliberately: it stays
+   vsync-aligned and preserves the macOS occlusion suspend we get for free.
+
+**Still unmeasured:** the actual runtime RAM delta. A controlled before/after with the
+desktop genuinely visible (and CPU checked, per the earlier mistake) has not been run.
+Do not put a new RAM number on the site until it has.
+
 ## Measured performance
 
 All figures from an M1 MacBook Air, July 2026, sampled with `ps` while the desktop was
@@ -167,21 +226,50 @@ confirmed the installer ran and the wallpaper played.
 
 ## Next up
 
-**In flight right now:** v0.3.0 CI build — first Linux attempt. Four jobs running
-(2× macOS, Windows, ubuntu-22.04). Unknown whether the Ubuntu job compiles; the apt
-dependency list (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`,
-`patchelf`, `libgtk-3-dev`) is unverified.
+**v0.3.0 CI — DONE, all six jobs green** (run 30619670053, July 31 09:22–09:30 UTC).
+The Ubuntu job built in 6m2s with zero Rust warnings; the apt dependency list is
+confirmed correct on ubuntu-22.04. Release published with nine assets:
+
+| Platform | Assets | Size |
+|---|---|---|
+| macOS | `bloom_0.3.0_aarch64.dmg`, `bloom_0.3.0_x64.dmg` | 3.3 / 3.4 MB |
+| Windows | `bloom_0.3.0_x64-setup.exe`, `bloom_0.3.0_x64_en-US.msi` | 2.2 / 3.3 MB |
+| Linux | `bloom_0.3.0_amd64.deb`, `bloom-0.3.0-1.x86_64.rpm` | 4.4 MB each |
+| Linux | `bloom_0.3.0_amd64.AppImage` | **82 MB** |
+
+The AppImage is 25× the dmg because `linuxdeploy-plugin-gtk` bundles GTK, WebKitGTK
+and gstreamer for distro portability; the deb/rpm declare them as system deps instead.
+Not a bug, but it sits badly next to "ultra-lightweight" on the site — lead with
+deb/rpm and offer the AppImage as the portable fallback.
+
+Compiling is not working. Nothing has run this build on real Linux hardware.
 
 **Immediate:**
-1. Confirm the Linux job built. If it failed, the dependency list is the first suspect.
-2. Get someone with a real Linux machine to try the `.AppImage`. X11 session only —
+1. ~~Confirm the Linux job built.~~ Done — green.
+2. Get someone with a real Linux machine to try it. Tester brief written (distro/DE/
+   session-type questions, FUSE-2 gotcha, multi-process RAM command). X11 session only —
    Wayland has no equivalent to the desktop window-type hint, so it will float on top.
    Bloom prints a startup warning when it detects Wayland.
-3. Get the Windows RAM number. Need Task Manager screenshot + video resolution + whether
+   **Suspected bug to watch for:** `lib.rs:97-100` builds the window (which shows it),
+   *then* calls `set_desktop_underlay(true)`. On X11 the plugin's implementation is
+   `gtk_window.set_type_hint(WindowTypeHint::Desktop)`, and most window managers read
+   `_NET_WM_WINDOW_TYPE` at map time and never re-read it. So the hint may arrive too
+   late and be ignored even on X11. If a tester reports "floats on top" *on an X11
+   session*, this is the cause — fix is to build with `.visible(false)`, set the
+   underlay, then `.show()`. That ordering would also kill the brief flash of a
+   full-screen window at normal level on macOS and Windows.
+3. Fix the v0.3.0 release body — it still says "for macOS (Apple Silicon & Intel) and
+   Windows" while three Linux assets sit under it. Draft written. Also fix
+   `.github/workflows/release.yml:24`, which hardcodes that platform list into every
+   future release.
+4. Get the Windows RAM number. Need Task Manager screenshot + video resolution + whether
    hardware GPU scheduling is on. If it's genuinely ~800 MB, suspect software decode
    fallback in WebView2 — that's a real bug, not just WebView2 overhead.
-4. Delete the two misleading `.tar.gz` assets from releases.
-5. Commit a real Activity Monitor screenshot so the README's numbers have receipts.
+5. Delete the two misleading `.tar.gz` assets from releases. v0.3.0 shipped them again
+   (`bloom_aarch64.app.tar.gz`, `bloom_x64.app.tar.gz`). The Linux job confirmed the
+   updater is dead: it logged *"Signature not found for the updater JSON. Skipping
+   upload"* — so nothing consumes these. Either wire up the updater or stop shipping them.
+6. Commit a real Activity Monitor screenshot so the README's numbers have receipts.
 
 **Distribution, when ready:**
 - Build ~10 Reddit karma by commenting normally, then post to r/SideProject,

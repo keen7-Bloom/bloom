@@ -8,11 +8,14 @@ export default defineConfig(async () => ({
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
-  // 0. multi-page: the settings UI (index.html) and the wallpaper renderer
+  // 0. wallpaper.html is the only page Bloom actually loads — lib.rs builds one
+  //    window pointing at it, and all control is via the tray menu. index.html and
+  //    src/ are leftover Tauri scaffold (its `greet` command doesn't even exist in
+  //    lib.rs); keeping them out of the input means they stop shipping inside every
+  //    installer.
   build: {
     rollupOptions: {
       input: {
-        main: "index.html",
         wallpaper: "wallpaper.html",
       },
     },
