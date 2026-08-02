@@ -262,6 +262,38 @@ not less — Chromium should be heavier than WKWebView, not lighter. Site shows
 
 ## Bugs found and fixed
 
+**macOS app was never validly signed — every release before v0.4.2 was unusable
+for anyone who downloaded it (found Aug 2, 2026).** A friend reported "bloom.app is
+damaged and can't be opened." It was not a corrupt download and not caused by the
+size-optimization pass — v0.2.0 has the identical defect, so this has been true of
+every release ever shipped.
+
+The bundle carried `flags=0x20002(adhoc,linker-signed)` — a signature the linker
+applies to the inner Mach-O — but had no `Contents/_CodeSignature` directory, so
+`codesign --verify` failed with *"code has no resources but signature indicates they
+must be present."* macOS reads a **malformed** signature as tampering and refuses to
+run the app at all; there is no right-click → Open escape hatch for that state. An
+**absent** signature is merely untrusted and does have one. We were shipping the
+strictly worse of the two.
+
+It never showed up locally because a locally-built app has no `com.apple.quarantine`
+attribute, so Gatekeeper never evaluates it. Only downloaders hit it.
+
+Fix: `bundle.macOS.signingIdentity: "-"` in `tauri.conf.json`, which makes Tauri run
+a real ad-hoc `codesign` over the finished bundle. Verified end to end — extracted
+the app from the built dmg, applied a quarantine xattr, and `spctl` went from
+*"code has no resources…"* (fatal) to plain `rejected` (the normal unsigned path).
+
+This does **not** remove the Gatekeeper warning; that still needs a $99/yr Developer
+ID and notarization. It converts "impossible to run" into "possible with one
+right-click", which is the whole distance that mattered.
+
+Workaround for anyone already stuck on an old build: `xattr -cr /Applications/bloom.app`
+
+Watch out: a build interrupted partway through dmg creation leaves a stale
+`/Volumes/dmg.XXXXXX` mount, and the next `bundle_dmg.sh` fails until it is ejected.
+Local annoyance only — CI runners start clean.
+
 **Tray menu did nothing (v0.1.0).** Tauri v2 capabilities are per-window and
 `capabilities/default.json` only listed `"main"`. Our window is named `"wallpaper"`, so it
 silently had no permission to receive events. Fix: add `"wallpaper"` to the windows array.
