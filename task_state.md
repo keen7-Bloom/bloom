@@ -8,6 +8,44 @@
 
 ---
 
+## Status check — August 7, 2026
+
+Full audit after ~5 quiet days. Everything builds, CI is green, `latest.json` serves
+v0.4.2 across 11 platform keys, and the site is correct again.
+
+**One real problem found and fixed today.** The Aug 2 edit pointing the site's download
+buttons at v0.4.2 was written but **never committed** — the session ended before the
+`git add`. So `keen7-bloom.github.io` served **v0.4.1 links from Aug 2 to Aug 7**, which
+is precisely the build whose malformed signature makes macOS refuse to open it. Every
+Mac visitor in that window got the broken one. Now committed (`d1e0b0f`), Pages
+redeployed, live site verified serving v0.4.2. Lesson: verifying a file on disk is not
+verifying it shipped — check `git status` before calling a site change done.
+
+**Numbers as of Aug 7:**
+
+| | |
+|---|---|
+| GitHub stars | **1** (first ever) |
+| Forks / watchers | 0 / 0 |
+| Repo views (14d) | 16 (6 unique) |
+| Clones (14d) | 121 (54 unique) — almost certainly scrapers, not humans |
+| Open issues / PRs | 0 |
+| Support inbox | **0 human messages** |
+
+**Downloads by release** (installers only, excludes `.sig` and `latest.json`):
+v0.2.0 → 6 · v0.3.0 → 0 · v0.4.0 → 2 · v0.4.1 → 12 · v0.4.2 → 3. Total ~23, and a
+meaningful share of those are Kenan, CI, and link-verification `curl`s.
+
+**Support inbox is entirely automated:** Product Hunt newsletters and badges, Google
+account setup, and unsolicited directory pitches (TinyHunt, 1000tools, SaasHunt,
+LaunchZone, rating.so, viberank). No bug reports, no questions, and **no follow-up from
+the friend who reported the "damaged" error** — so the signing fix is still unconfirmed
+on any machine but Kenan's.
+
+**The single most valuable next action is social, not technical:** ask that friend to
+download v0.4.2 and report back. Until someone who isn't Kenan opens Bloom successfully,
+the app has still never been verified working by an outside user on macOS.
+
 ## Right now, in one paragraph
 
 **v0.4.0 shipped** with optimization + self-updater + Windows + macOS updater signing
