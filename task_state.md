@@ -31,6 +31,7 @@ verifying it shipped — check `git status` before calling a site change done.
 | Clones (14d) | 121 (54 unique) — almost certainly scrapers, not humans |
 | Open issues / PRs | 0 |
 | Support inbox | **0 human messages** |
+| Product Hunt followers | **26** (was 7 on Jul 31 — grew ~4× unpromoted) |
 
 **Downloads by release** (installers only, excludes `.sig` and `latest.json`):
 v0.2.0 → 6 · v0.3.0 → 0 · v0.4.0 → 2 · v0.4.1 → 12 · v0.4.2 → 3. Total ~23, and a
@@ -45,6 +46,15 @@ on any machine but Kenan's.
 **The single most valuable next action is social, not technical:** ask that friend to
 download v0.4.2 and report back. Until someone who isn't Kenan opens Bloom successfully,
 the app has still never been verified working by an outside user on macOS.
+
+**The 26 Product Hunt followers are the only real audience Bloom has, and they are
+reachable.** PH lets a maker post an update to a product's followers — no karma gate, no
+account-age gate, none of the walls that blocked Reddit and HN. That is the least-gated
+channel currently available, it costs nothing, and there is a genuine reason to use it:
+every macOS build before v0.4.2 was impossible to open, so anyone in that group who tried
+Bloom during launch week got a broken app and no explanation. A short, honest "the Mac
+build was broken, here's the fix" post is owed to them and is also the most credible
+thing that could be said to them.
 
 ## Right now, in one paragraph
 
